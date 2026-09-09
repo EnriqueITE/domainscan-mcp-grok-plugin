@@ -1,0 +1,19 @@
+{
+  "name": "domain-scan",
+  "version": "1.1.1",
+  "description": "Domain security scanner by CYBERACE. Run SPF, DKIM, DMARC, SSL, headers, DNSSEC and blocklist checks from chat via a remote HTTPS MCP server. No local binaries or hooks.",
+  "author": {
+    "name": "CYBERACE LTD",
+    "email": "hello@domainscan.tools",
+    "url": "https://domainscan.tools"
+  },
+  "repository": "https://github.com/EnriqueITE/domainscan-mcp-grok-plugin",
+  "homepage": "https://domainscan.tools",
+  "license": "MIT",
+  "keywords": [
+    "domain-scan",
+    "domainscan",
+    "Domain Scan by CYBERACE",
+    "CYBERACE Domain Scan"
+  ]
+}
