@@ -1,7 +1,7 @@
 {
   "name": "domain-scan",
-  "version": "1.1.1",
-  "description": "Domain security scanner by CYBERACE. Run SPF, DKIM, DMARC, SSL, headers, DNSSEC and blocklist checks from chat via a remote HTTPS MCP server. No local binaries or hooks.",
+  "version": "1.2.0",
+  "description": "Domain Scan by CYBERACE: domain security scans, reverse IPv4 lookups, certificate-based subdomain discovery, and monitoring signup links. Four public tools via a remote HTTPS MCP server; no local binaries or hooks.",
   "author": {
     "name": "CYBERACE LTD",
     "email": "hello@domainscan.tools",

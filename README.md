@@ -8,7 +8,7 @@
 
 Official thin plugin for **[Domain Scan by CYBERACE](https://domainscan.tools)**.
 
-Scan domain security from Grok Build. Visit **[domainscan.tools](https://domainscan.tools)** for the web scanner and monitoring dashboard.
+Scan domain security, look up domains associated with a public IPv4 address, discover subdomains from public certificate records, and get a monitoring signup link from Grok Build. These four tools work without an account or API key. Visit **[domainscan.tools](https://domainscan.tools)** for the web scanner and monitoring dashboard.
 
 This package **only configures a remote HTTPS MCP server**. It does not install local binaries, hooks, or scripts. Grok talks to:
 
@@ -25,7 +25,7 @@ This package targets **Grok Build**. Listing it in the xAI plugin marketplace do
 ## Security posture (read this)
 
 - **No local code execution** from this plugin; see [SECURITY.md](./SECURITY.md).
-- **Anonymous** use exposes only `scan_domain` (public DNS/TLS/HTTP signals).
+- **Anonymous** use exposes `scan_domain`, `reverse_ip_lookup`, `find_subdomains`, and `get_monitoring_signup_link`.
 - **Account tools** require your personal API key (`ds_live_...`). Never commit keys.
 - Anyone holding a report link (`/r/<hex>`) can view the report until it expires. Do **not** post these links publicly.
 - Rate limits and other backend controls are described separately from the checks performed in this repository; see [SECURITY.md](./SECURITY.md).
@@ -51,7 +51,7 @@ After installation, enable the plugin if needed with `grok plugin enable domain-
 Alternatively, configure only the MCP connection manually:
 
 ```bash
-# Anonymous free scans
+# Anonymous scans, public lookups, and monitoring signup links
 grok mcp add --transport http domain-scan https://api.domainscan.tools/functions/v1/mcp-server
 
 # Optional: your account tools
@@ -63,13 +63,31 @@ The commands above use Bash syntax. The single quotes preserve the environment-v
 
 The root `.mcp.json` provides the anonymous configuration for compatible clients. Account access uses an optional static bearer header; OAuth is not required by this server.
 
-## What `scan_domain` returns
+## Public tools (no authentication required)
+
+| Tool | Input | Result and limits |
+|---|---|---|
+| `scan_domain` | Bare `domain`; optional `dkim_selector` | Security score, findings, fix hints, and an opaque report link. Creates a temporary report, consumes scan quota, and may send administrative notifications. |
+| `reverse_ip_lookup` | `query`: public IPv4 address or bare domain resolved to IPv4; optional `deep` | Associated domains, network/ASN information and PTR records. Uses the service's index, reverse DNS and public discovery sources. Deep discovery runs automatically when needed. Anonymous results list up to 20 domains. |
+| `find_subdomains` | Bare `domain` | Subdomains found in public certificate transparency records (crt.sh / crt.name). Only certificate-listed names are included; this is not a complete inventory. Results may be cached for 7 days. |
+| `get_monitoring_signup_link` | Bare `domain` | Registration link with the domain pre-filled, when the user asks about monitoring or alerts. **Does not activate monitoring**, create an account, send email, or consume scan quota. The user must continue on the website to set up monitoring. |
+
+Public lookups do not create scan reports or consume the free scan quota. They query external public sources, cache results and count requests for abuse control. Sharing an IP address does not establish shared ownership or malicious activity, and a missing result does not establish that no associated domains or subdomains exist.
+
+### What `scan_domain` returns
 
 A real scan of a bare domain (`example.com`), including:
 
-SSL expiry · SPF · DKIM · DMARC · MTA-STS · HTTPS redirect · HSTS · CSP · DNSSEC · CAA · BIMI · domain expiration (RDAP) · DNS blocklists
+SSL expiry · SPF · DKIM · DMARC · MTA-STS · HTTPS redirect · HSTS · CSP · DNSSEC · CAA · BIMI · domain expiration (RDAP) · DNS blocklists · uptime and response time
 
-Plus a 0-100 score, per-check findings with fix hints, and an opaque report link with a server-advertised 48-hour expiry. The score summarizes the checks performed and is not a guarantee that a domain is secure. See [SECURITY.md](./SECURITY.md) for verification details.
+Plus a 0-100 score, per-check findings with fix hints, and an opaque report link with a server-advertised **7-day expiry**. Anyone holding the link can access it until expiry; do not publish it publicly. The score summarizes the checks performed and is not a guarantee that a domain is secure. See [SECURITY.md](./SECURITY.md) for verification details.
+
+### Example requests
+
+- "Scan example.com and explain the failing security checks."
+- "Which domains are associated with this public IPv4 address?"
+- "Find subdomains of example.com in public certificate records."
+- "Give me a signup link to set up monitoring for example.com."
 
 ## Authenticated tools (API key)
 
@@ -87,14 +105,21 @@ Create a key in the Domain Scan dashboard. The service documents one-time displa
 
 | Caller | Advertised limit |
 |---|---|
-| Anonymous (IP) | 20 scans / 10 minutes (shared with website free scan) |
-| Authenticated (API key) | 100 calls / hour |
+| Anonymous `scan_domain` (IP) | 20 scans / 10 minutes |
+| Anonymous `reverse_ip_lookup` / `find_subdomains` (IP) | 20 lookups / 10 minutes; separate from scan quota |
+| Authenticated free plan | 30 calls / day; lists up to 50 |
+| Authenticated trial | 200 calls / day; lists up to 150 |
+| Authenticated Pro | Up to 1,000 calls / hour; complete available lists |
+
+These are the limits advertised by the live MCP instructions on 2026-10-31, not independently verified enforcement guarantees. Anonymous reverse-IP results list up to 20 domains; authenticated list sizes depend on the plan. A complete available list is still limited to the service's sources, not all domains on the internet. Follow the current tool descriptions and server rate-limit errors if the service changes.
 
 The service documents SSRF guards that reject private/loopback IPs and names resolving to private ranges. This repository does not implement these controls. See [SECURITY.md](./SECURITY.md) for the verification scope and outstanding checks.
 
 ## Data sent to the service
 
-Scanning sends the domain and optional DKIM selector to the remote MCP endpoint. Account calls also send the configured bearer key and any tool arguments. The service creates a temporary scan report and receives normal network request metadata. Tools do not require passwords or personal information in their arguments; this is not a claim that the service processes no personal data or keeps no logs. Do not include secrets or personal information in tool arguments.
+Calls send the supplied domain, IPv4 address, optional DKIM selector or lookup options to the remote MCP endpoint. Account calls also send the configured bearer key and tool arguments. The service receives normal request metadata, and account queries record API usage and update the key's last-used timestamp. Scans persist temporary reports, consume quota and may send irreversible administrative notifications. Public lookups query external public sources and cache/count requests; they do not create scan reports. The signup-link tool returns a link without activating monitoring or sending email.
+
+Tools do not require passwords or personal information in their arguments; this is not a claim that the service processes no personal data or keeps no logs. Do not include secrets or personal information in tool arguments. Website transactional email and any user-configured email notifications are handled by the service, not by the signup-link tool. See the product's privacy policy for provider and processing details.
 
 Grok Build receives text results; this plugin does not depend on a ChatGPT-specific widget.
 
